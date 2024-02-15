@@ -5,7 +5,6 @@ from PIL import Image, ImageTk
 import csv
 import time
 from deepface import DeepFace
-import matplotlib.pyplot as plt
 
 video_capture = cv2.VideoCapture(0)
 
@@ -20,8 +19,8 @@ root = tk.Tk()
 root.title("Entry Details")
 root.geometry("800x600")
 
-
 entry_counter = 0  
+exit_counter=0
 
 def capture_entry():
     global entry_counter  
@@ -34,8 +33,6 @@ def capture_entry():
         return
 
     _, frame = video_capture.read()
-    
-
     
     entry_time = time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -58,57 +55,70 @@ def capture_entry():
         "Entry Saved", f"Entry details saved for {saved_entry_path}"
     )
 
-    # Clear input fields
     parent_name_var.set('')
     student_name_var.set('')
     class_section_var.set('')
 
 
 def display_details(entry_id):
+    print(f"Attempting to display details for entry ID: {entry_id}")
     with open(csv_file_path, mode='r') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             if int(row['ID']) == entry_id:
                 # Construct details string
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
+                print(details)
 
-                # Display details in the tkinter GUI
-                label_parent_name.config(text=details)
+                # Create a custom dialog
+                dialog = tk.Toplevel(root)
+                dialog.title("Entry Details")
+
+                label_details = ttk.Label(dialog, text=details, padding=(10, 10))
+                label_details.grid(row=0, column=0)
+
+                ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
+                ok_button.grid(row=1, column=0)
+
+                print(f"Details successfully displayed for entry ID: {entry_id}")
                 break
+        else:
+            print(f"No details found for entry ID: {entry_id}")
+
 
 def recognize_face():
-    global entry_counter, exit_counter  # Use the same counter as in capture_entry
+    global entry_counter, exit_counter 
     _, frame = video_capture.read()
     
     match_found = False
     matching_entry_id = None
     
-    # Perform face recognition for entry frames and exit frames
-    for entry_id in range(1, entry_counter + 1):
+    for entry_id in range(0, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
             result = DeepFace.verify(entry_frame_path, frame)
             if result["verified"]:
                 messagebox.showinfo("Face Recognized", f"Face recognized! Details will be shown for entry_frame-{entry_id}.jpg")
-                display_details(entry_id)
+                display_details(entry_id+1)
                 return
-        except:
-            # Handle any exceptions that may occur during face verification
-            pass
-    
-        # Save the face image with the name "exit_frame-{exit_counter}.jpg"
-        exit_frame_path = f"exit_frame-{exit_counter}.jpg"
-        cv2.imwrite(exit_frame_path, frame)
+        except Exception as e:
 
+            print(f"Error verifying entry_frame-{entry_id}: {e}")
+
+    exit_frame_path = f"exit_frame-{exit_counter}.jpg"
+    cv2.imwrite(exit_frame_path, frame)
+
+    for entry_id in range(1, entry_counter + 1):
+        entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
             result = DeepFace.verify(entry_frame_path, exit_frame_path)
             if result["verified"]:
                 match_found = True
                 matching_entry_id = entry_id
                 break
-        except:
-            # Handle any exceptions that may occur during face verification
-            pass
+        except Exception as e:
+    
+            print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
 
     if match_found:
         # Display details for the matching entry frame
@@ -120,14 +130,9 @@ def recognize_face():
     canvas.create_image(0, 0, anchor=tk.NW, image=photo)
     canvas.image = photo
 
-    root.after(10, recognize_face)
-
-    photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
-    canvas.create_image(0, 0, anchor=tk.NW, image=photo)
-    canvas.image = photo
+    exit_counter += 1  
 
     root.after(10, recognize_face)
-
 
 style = ttk.Style()
 style.configure("TButton", padding=(5, 5, 5, 5), font="TkDefaultFont")
