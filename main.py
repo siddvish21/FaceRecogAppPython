@@ -19,8 +19,23 @@ root = tk.Tk()
 root.title("Entry Details")
 root.geometry("800x600")
 
-entry_counter = 0  
+
+with open(csv_file_path, mode='r') as csv_file:
+        reader = csv.DictReader(csv_file)
+        last_row = None
+        for row in reader:
+            last_row = row
+
+if last_row:
+        last_entry_id = int(last_row['ID'])
+        entry_counter = last_entry_id
+else:
+       entry_counter = 1
+
+exit_counter=1
+  
 exit_counter=0
+
 
 def capture_entry():
     global entry_counter  
@@ -43,7 +58,7 @@ def capture_entry():
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writerow(
             {
-                "ID": entry_counter + 1,
+                "ID": entry_counter ,
                 "Parent_Name": parent_name,
                 "Student_Name": student_name,
                 "Class_Section": class_section,
@@ -88,36 +103,38 @@ def display_details(entry_id):
 
 def recognize_face():
     global entry_counter, exit_counter 
+
+    # Capture the current frame
     _, frame = video_capture.read()
-    
+
     match_found = False
     matching_entry_id = None
-    
-    for entry_id in range(0, entry_counter + 1):
+
+    for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
             result = DeepFace.verify(entry_frame_path, frame)
             if result["verified"]:
                 messagebox.showinfo("Face Recognized", f"Face recognized! Details will be shown for entry_frame-{entry_id}.jpg")
-                display_details(entry_id+1)
+                display_details(entry_id)
                 return
         except Exception as e:
-
             print(f"Error verifying entry_frame-{entry_id}: {e}")
 
+    # Save the exit frame after checking all entry frames
     exit_frame_path = f"exit_frame-{exit_counter}.jpg"
     cv2.imwrite(exit_frame_path, frame)
 
     for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
+            # Verify using the captured exit frame without saving and reading again
             result = DeepFace.verify(entry_frame_path, exit_frame_path)
             if result["verified"]:
                 match_found = True
                 matching_entry_id = entry_id
                 break
         except Exception as e:
-    
             print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
 
     if match_found:
@@ -125,13 +142,8 @@ def recognize_face():
         display_details(matching_entry_id)
     else:
         messagebox.showwarning("Unknown Face", "Face not recognized.")
-
-    photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
-    canvas.create_image(0, 0, anchor=tk.NW, image=photo)
-    canvas.image = photo
-
-    exit_counter += 1  
-
+    return
+    exit_counter += 1
     root.after(10, recognize_face)
 
 style = ttk.Style()
