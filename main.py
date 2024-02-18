@@ -1,41 +1,11 @@
 import cv2
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, Tk, Label
 from PIL import Image, ImageTk
 import csv
 import time
 from deepface import DeepFace
-
-video_capture = cv2.VideoCapture(0)
-
-csv_file_path = "entry_data.csv"
-with open(csv_file_path, mode='a', newline='') as csv_file:
-    fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time"]
-    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-    if csv_file.tell() == 0:
-        writer.writeheader()
-
-root = tk.Tk()
-root.title("Entry Details")
-root.geometry("800x600")
-
-
-with open(csv_file_path, mode='r') as csv_file:
-        reader = csv.DictReader(csv_file)
-        last_row = None
-        for row in reader:
-            last_row = row
-
-if last_row:
-        last_entry_id = int(last_row['ID'])
-        entry_counter = last_entry_id
-else:
-       entry_counter = 1
-
-exit_counter=1
-  
-exit_counter=0
-
+import tkinter.font as tkFont
 
 def capture_entry():
     global entry_counter  
@@ -84,16 +54,16 @@ def display_details(entry_id):
     
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
                 print(details)
+                label_details.config(text = details,)
 
-           
-                dialog = tk.Toplevel(root)
-                dialog.title("Entry Details")
+                # dialog = tk.Toplevel(root)
+                # dialog.title("Entry Details")
 
-                label_details = ttk.Label(dialog, text=details, padding=(10, 10))
-                label_details.grid(row=0, column=0)
+                # label_details = ttk.Label(dialog, text=details, padding=(10, 10))
+                # label_details.grid(row=0, column=0)
 
-                ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
-                ok_button.grid(row=1, column=0)
+                # ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
+                # ok_button.grid(row=1, column=0)
 
                 print(f"Details successfully displayed for entry ID: {entry_id}")
                 break
@@ -108,18 +78,6 @@ def recognize_face():
 
     match_found = False
     matching_entry_id = None
-
-    for entry_id in range(1, entry_counter + 1):
-        entry_frame_path = f"entry_frame-{entry_id}.jpg"
-        try:
-            result = DeepFace.verify(entry_frame_path, frame,enforce_detection=False)
-            if result["verified"]:
-                messagebox.showinfo("Face Recognized", f"Face recognized! Details will be shown for entry_frame-{entry_id}.jpg")
-                display_details(entry_id)
-                return
-        except Exception as e:
-            print(f"Error verifying entry_frame-{entry_id}: {e}")
-
  
     exit_frame_path = f"exit_frame-{exit_counter}.jpg"
     cv2.imwrite(exit_frame_path, frame)
@@ -137,14 +95,53 @@ def recognize_face():
             print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
 
     if match_found:
-
         display_details(matching_entry_id)
     else:
         messagebox.showwarning("Unknown Face", "Face not recognized.")
     
     exit_counter += 1
-    root.after(10, recognize_face)
-    
+
+
+def update():
+    _, frame = video_capture.read()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
+    canvas.create_image(0, 0, anchor=tk.NW, image=photo)
+    canvas.image = photo
+
+    root.after(10, update)
+ 
+
+video_capture = cv2.VideoCapture(0)
+
+csv_file_path = "entry_data.csv"
+with open(csv_file_path, mode='a', newline='') as csv_file:
+    fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time"]
+    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    if csv_file.tell() == 0:
+        writer.writeheader()
+
+root = Tk()
+root.title("Entry Details")
+root.geometry("1200x800")
+
+#creating a font object
+fontObj = tkFont.Font(size=12)
+
+with open(csv_file_path, mode='r') as csv_file:
+        reader = csv.DictReader(csv_file)
+        last_row = None
+        for row in reader:
+            last_row = row
+
+if last_row:
+        last_entry_id = int(last_row['ID'])
+        entry_counter = last_entry_id + 1
+else:
+       entry_counter = 1
+
+exit_counter=0
 
 style = ttk.Style()
 style.configure("TButton", padding=(5, 5, 5, 5), font="TkDefaultFont")
@@ -182,18 +179,11 @@ entry_button.grid(row=3, column=0, columnspan=2, pady=10)
 recognize_button = ttk.Button(frame_left, text="Recognize Face", command=recognize_face)
 recognize_button.grid(row=4, column=0, columnspan=2, pady=10)
 
+label_details = Label(frame_left, text="Recognized Output:", width=40, height=5, font=fontObj)
+label_details.grid(row=5, column=0, sticky='w')
+
 canvas = tk.Canvas(frame_right, width=640, height=480)
 canvas.pack(expand=True, fill=tk.BOTH)
-
-def update():
-    _, frame = video_capture.read()
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
-    canvas.create_image(0, 0, anchor=tk.NW, image=photo)
-    canvas.image = photo
-
-    root.after(10, update)
 
 update()
 
@@ -201,3 +191,7 @@ root.mainloop()
 
 video_capture.release()
 cv2.destroyAllWindows()
+  
+
+
+
