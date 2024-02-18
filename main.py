@@ -81,11 +81,11 @@ def display_details(entry_id):
         reader = csv.DictReader(csv_file)
         for row in reader:
             if int(row['ID']) == entry_id:
-                # Construct details string
+    
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
                 print(details)
 
-                # Create a custom dialog
+           
                 dialog = tk.Toplevel(root)
                 dialog.title("Entry Details")
 
@@ -104,7 +104,6 @@ def display_details(entry_id):
 def recognize_face():
     global entry_counter, exit_counter 
 
-    # Capture the current frame
     _, frame = video_capture.read()
 
     match_found = False
@@ -113,7 +112,7 @@ def recognize_face():
     for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
-            result = DeepFace.verify(entry_frame_path, frame)
+            result = DeepFace.verify(entry_frame_path, frame,enforce_detection=False)
             if result["verified"]:
                 messagebox.showinfo("Face Recognized", f"Face recognized! Details will be shown for entry_frame-{entry_id}.jpg")
                 display_details(entry_id)
@@ -121,14 +120,14 @@ def recognize_face():
         except Exception as e:
             print(f"Error verifying entry_frame-{entry_id}: {e}")
 
-    # Save the exit frame after checking all entry frames
+ 
     exit_frame_path = f"exit_frame-{exit_counter}.jpg"
     cv2.imwrite(exit_frame_path, frame)
 
     for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
-            # Verify using the captured exit frame without saving and reading again
+       
             result = DeepFace.verify(entry_frame_path, exit_frame_path)
             if result["verified"]:
                 match_found = True
@@ -138,13 +137,14 @@ def recognize_face():
             print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
 
     if match_found:
-        # Display details for the matching entry frame
+
         display_details(matching_entry_id)
     else:
         messagebox.showwarning("Unknown Face", "Face not recognized.")
-    return
+    
     exit_counter += 1
     root.after(10, recognize_face)
+    
 
 style = ttk.Style()
 style.configure("TButton", padding=(5, 5, 5, 5), font="TkDefaultFont")
