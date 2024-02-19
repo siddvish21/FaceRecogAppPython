@@ -1,0 +1,4 @@
+opencv-python==4.9.0
+pillow==9.5.0
+deepface==0.0.84
+csv2pdf==0.1.4
