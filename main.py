@@ -6,6 +6,7 @@ import csv
 import time
 from deepface import DeepFace
 import tkinter.font as tkFont
+from csv2pdf import convert
 
 def capture_entry():
     global entry_counter  
@@ -44,49 +45,37 @@ def capture_entry():
     student_name_var.set('')
     class_section_var.set('')
 
-
+def clear_details():
+    label_details.config(text="")
+    
 def display_details(entry_id):
     print(f"Attempting to display details for entry ID: {entry_id}")
     with open(csv_file_path, mode='r') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             if int(row['ID']) == entry_id:
-    
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
                 print(details)
-                label_details.config(text = details,)
-
-                # dialog = tk.Toplevel(root)
-                # dialog.title("Entry Details")
-
-                # label_details = ttk.Label(dialog, text=details, padding=(10, 10))
-                # label_details.grid(row=0, column=0)
-
-                # ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
-                # ok_button.grid(row=1, column=0)
-
-                print(f"Details successfully displayed for entry ID: {entry_id}")
+                label_details.config(text=details)
+                messagebox.showinfo("SUCCESS!", "FACE DETECTED!!")
                 break
         else:
             print(f"No details found for entry ID: {entry_id}")
-
-
 def recognize_face():
-    global entry_counter, exit_counter 
+    global entry_counter, exit_counter, exit_time
 
     _, frame = video_capture.read()
 
     match_found = False
     matching_entry_id = None
- 
+
     exit_frame_path = f"exit_frame-{exit_counter}.jpg"
     cv2.imwrite(exit_frame_path, frame)
-
+    
     for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
-       
-            result = DeepFace.verify(entry_frame_path, exit_frame_path)
+            result = DeepFace.verify(entry_frame_path, exit_frame_path, enforce_detection=False)
             if result["verified"]:
                 match_found = True
                 matching_entry_id = entry_id
@@ -95,12 +84,31 @@ def recognize_face():
             print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
 
     if match_found:
+        exit_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        update_entry_exit_time(matching_entry_id, exit_time)
         display_details(matching_entry_id)
     else:
         messagebox.showwarning("Unknown Face", "Face not recognized.")
-    
+
     exit_counter += 1
 
+def update_entry_exit_time(entry_id, exit_time):
+    with open(csv_file_path, mode='r') as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    for row in rows:
+        if int(row['ID']) == entry_id:
+            row['Exit_Time'] = exit_time
+            break
+
+    with open(csv_file_path, mode='w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def generate_report():
+    convert("entry_data.csv", "final_report.pdf")
+    messagebox.showinfo("Report Generated", "Report successfully generated and saved as 'final_report.pdf'.")
 
 def update():
     _, frame = video_capture.read()
@@ -116,11 +124,16 @@ def update():
 video_capture = cv2.VideoCapture(0)
 
 csv_file_path = "entry_data.csv"
+
+
+fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time", "Exit_Time"]
+
 with open(csv_file_path, mode='a', newline='') as csv_file:
-    fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time"]
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
     if csv_file.tell() == 0:
         writer.writeheader()
+
+
 
 root = Tk()
 root.title("Entry Details")
@@ -179,8 +192,15 @@ entry_button.grid(row=3, column=0, columnspan=2, pady=10)
 recognize_button = ttk.Button(frame_left, text="Recognize Face", command=recognize_face)
 recognize_button.grid(row=4, column=0, columnspan=2, pady=10)
 
+clear_details_button = ttk.Button(frame_left, text="Clear Details", command=clear_details)
+clear_details_button.grid(row=6, column=0, columnspan=2, pady=10)
+
+
 label_details = Label(frame_left, text="Recognized Output:", width=40, height=5, font=fontObj)
 label_details.grid(row=5, column=0, sticky='w')
+
+generate_report_button = ttk.Button(frame_right, text="Generate Report", command=generate_report)
+generate_report_button.pack(side=tk.BOTTOM, pady=(0, 25))
 
 canvas = tk.Canvas(frame_right, width=640, height=480)
 canvas.pack(expand=True, fill=tk.BOTH)

@@ -1,3 +1,2 @@
-ID,Parent_Name,Student_Name,Class_Section,Entry_Time
-1,vasantha,raji,10c1a,2024-02-18 22:00:08
-2,raj,sid,10c15,2024-02-18 22:00:39
+ID,Parent_Name,Student_Name,Class_Section,Entry_Time,Exit_Time
+
