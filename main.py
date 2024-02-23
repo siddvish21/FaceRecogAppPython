@@ -8,6 +8,10 @@ from deepface import DeepFace
 import tkinter.font as tkFont
 from csv2pdf import convert
 
+def clear_details():
+    label_details.config(text="")
+    
+
 def capture_entry():
     global entry_counter  
     parent_name = parent_name_var.get()
@@ -45,9 +49,33 @@ def capture_entry():
     student_name_var.set('')
     class_section_var.set('')
 
-def clear_details():
-    label_details.config(text="")
     
+def show_custom_info(message):
+    custom_info_window = tk.Toplevel(root)
+    custom_info_window.title("SUCESS!FACE MATCHED")
+    custom_info_window.geometry("300x100")
+    
+    custom_font = tkFont.Font(size=14)
+    custom_info_window.configure(bg="#00FF00")
+    label = ttk.Label(custom_info_window, text=message, padding=10,font=custom_font)
+    label.pack()
+
+    ok_button = ttk.Button(custom_info_window, text="OK", command=custom_info_window.destroy)
+    ok_button.pack(pady=10)
+
+def show_custom_warning(message):
+    custom_info_window = tk.Toplevel(root)
+    custom_info_window.title("NO MATCH!")
+    custom_info_window.geometry("300x100")
+    
+    custom_font = tkFont.Font(size=14)
+    custom_info_window.configure(bg="#FF0000")
+    label = ttk.Label(custom_info_window, text=message, padding=10,font=custom_font)
+    label.pack()
+
+    ok_button = ttk.Button(custom_info_window, text="OK", command=custom_info_window.destroy)
+    ok_button.pack(pady=10)
+
 def display_details(entry_id):
     print(f"Attempting to display details for entry ID: {entry_id}")
     with open(csv_file_path, mode='r') as csv_file:
@@ -57,7 +85,7 @@ def display_details(entry_id):
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
                 print(details)
                 label_details.config(text=details)
-                messagebox.showinfo("SUCCESS!", "FACE DETECTED!!")
+                show_custom_info("FACE DETECTED!!")
                 break
         else:
             print(f"No details found for entry ID: {entry_id}")
@@ -75,7 +103,7 @@ def recognize_face():
     for entry_id in range(1, entry_counter + 1):
         entry_frame_path = f"entry_frame-{entry_id}.jpg"
         try:
-            result = DeepFace.verify(entry_frame_path, exit_frame_path, enforce_detection=False)
+            result = DeepFace.verify(entry_frame_path, exit_frame_path, enforce_detection=True)
             if result["verified"]:
                 match_found = True
                 matching_entry_id = entry_id
@@ -85,26 +113,26 @@ def recognize_face():
 
     if match_found:
         exit_time = time.strftime("%Y-%m-%d %H:%M:%S")
-        update_entry_exit_time(matching_entry_id, exit_time)
+        #update_entry_exit_time(matching_entry_id, exit_time)
         display_details(matching_entry_id)
     else:
-        messagebox.showwarning("Unknown Face", "Face not recognized.")
+        show_custom_warning("FACE NOT RECOGNIZED!.")
 
     exit_counter += 1
 
-def update_entry_exit_time(entry_id, exit_time):
-    with open(csv_file_path, mode='r') as csv_file:
-        rows = list(csv.DictReader(csv_file))
+# def update_entry_exit_time(entry_id, exit_time):
+#     with open(csv_file_path, mode='r') as csv_file:
+#         rows = list(csv.DictReader(csv_file))
 
-    for row in rows:
-        if int(row['ID']) == entry_id:
-            row['Exit_Time'] = exit_time
-            break
+#     for row in rows:
+#         if int(row['ID']) == entry_id:
+#             row['Exit_Time'] = exit_time
+#             break
 
-    with open(csv_file_path, mode='w', newline='') as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+#     with open(csv_file_path, mode='w', newline='') as csv_file:
+#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+#         writer.writeheader()
+#         writer.writerows(rows)
 
 def generate_report():
     convert("entry_data.csv", "final_report.pdf")
@@ -126,7 +154,7 @@ video_capture = cv2.VideoCapture(0)
 csv_file_path = "entry_data.csv"
 
 
-fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time", "Exit_Time"]
+fieldnames = ["ID", "Parent_Name", "Student_Name", "Class_Section", "Entry_Time"]
 
 with open(csv_file_path, mode='a', newline='') as csv_file:
     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
