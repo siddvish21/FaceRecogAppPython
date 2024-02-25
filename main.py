@@ -7,11 +7,21 @@ import time
 from deepface import DeepFace
 import tkinter.font as tkFont
 from csv2pdf import convert
+import os
+
+current_folder=os.getcwd()
+entry_images = os.path.join(current_folder, 'entry_images')
+exit_images = os.path.join(current_folder, 'exit_images')
+
+if not os.path.exists(entry_images):
+    os.makedirs(entry_images)
+
+if not os.path.exists(exit_images):
+    os.makedirs(exit_images)
 
 def clear_details():
     label_details.config(text="")
     
-
 def capture_entry():
     global entry_counter  
     parent_name = parent_name_var.get()
@@ -26,7 +36,7 @@ def capture_entry():
     
     entry_time = time.strftime("%Y-%m-%d %H:%M:%S")
 
-    saved_entry_path = f"entry_frame-{entry_counter}.jpg"
+    saved_entry_path = os.path.join(entry_images,f"{parent_name}.jpg")
     cv2.imwrite(saved_entry_path, frame)
 
     with open(csv_file_path, mode='a', newline='') as csv_file:
@@ -50,89 +60,72 @@ def capture_entry():
     class_section_var.set('')
 
     
-def show_custom_info(message):
+def show_custom_info(message,title,window_color):
     custom_info_window = tk.Toplevel(root)
-    custom_info_window.title("SUCESS!FACE MATCHED")
+    custom_info_window.title(title)
     custom_info_window.geometry("300x100")
     
     custom_font = tkFont.Font(size=14)
-    custom_info_window.configure(bg="#00FF00")
+    custom_info_window.configure(bg=window_color)
     label = ttk.Label(custom_info_window, text=message, padding=10,font=custom_font)
     label.pack()
 
     ok_button = ttk.Button(custom_info_window, text="OK", command=custom_info_window.destroy)
     ok_button.pack(pady=10)
 
-def show_custom_warning(message):
-    custom_info_window = tk.Toplevel(root)
-    custom_info_window.title("NO MATCH!")
-    custom_info_window.geometry("300x100")
-    
-    custom_font = tkFont.Font(size=14)
-    custom_info_window.configure(bg="#FF0000")
-    label = ttk.Label(custom_info_window, text=message, padding=10,font=custom_font)
-    label.pack()
-
-    ok_button = ttk.Button(custom_info_window, text="OK", command=custom_info_window.destroy)
-    ok_button.pack(pady=10)
-
-def display_details(entry_id):
-    print(f"Attempting to display details for entry ID: {entry_id}")
+def display_details(parent_name):
+    print(f"Attempting to display details for entry ID: {parent_name}")
     with open(csv_file_path, mode='r') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
-            if int(row['ID']) == entry_id:
+            if row['Parent_Name'] == parent_name:
                 details = f"Entry ID: {row['ID']}\nParent's Name: {row['Parent_Name']}\nStudent's Name: {row['Student_Name']}\nClass Section: {row['Class_Section']}\nEntry Time: {row['Entry_Time']}"
                 print(details)
                 label_details.config(text=details)
-                show_custom_info("FACE DETECTED!!")
+                show_custom_info("FACE DETAILS FOUND!!","SUCCESS!!","#00FF00")
                 break
         else:
-            print(f"No details found for entry ID: {entry_id}")
+            print(f"No details found for entry ID: {parent_name}")
+
 def recognize_face():
-    global entry_counter, exit_counter, exit_time
+    global entry_counter, exit_counter, parent_name_var
 
     _, frame = video_capture.read()
+    parent_fields = []
+    exit_frame_path = os.path.join(exit_images, "temp_exit_frame.jpg")
 
-    match_found = False
-    matching_entry_id = None
-
-    exit_frame_path = f"exit_frame-{exit_counter}.jpg"
     cv2.imwrite(exit_frame_path, frame)
-    
-    for entry_id in range(1, entry_counter + 1):
-        entry_frame_path = f"entry_frame-{entry_id}.jpg"
+
+    with open(csv_file_path, mode='r') as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            parent_fields.append(row['Parent_Name'])
+
+    for parent_name in parent_fields:
+        entry_frame_path = os.path.join(entry_images, f"{parent_name}.jpg")
         try:
+            print(f"Verifying {entry_frame_path} with {exit_frame_path}")
             result = DeepFace.verify(entry_frame_path, exit_frame_path, enforce_detection=True)
             if result["verified"]:
-                match_found = True
-                matching_entry_id = entry_id
-                break
+                destination_path = os.path.join(exit_images, f"{parent_name}.jpg")
+
+                if os.path.exists(destination_path):
+                    print("Exit already done.")
+                    show_custom_info("EXIT ALREADY DONE!!!", "EXIT DONE", "#FF0000")
+                    break
+                else:
+                    os.rename(exit_frame_path, destination_path)
+                    print("Exit successfully recorded.")
+                    display_details(parent_name)
+                    break
+            else:
+                show_custom_info("FACE NOT MATCHED!!", "FAILED", "#FF0000")
+                break                                       
         except Exception as e:
-            print(f"Error verifying exit_frame-{exit_counter} with entry_frame-{entry_id}: {e}")
-
-    if match_found:
-        exit_time = time.strftime("%Y-%m-%d %H:%M:%S")
-        #update_entry_exit_time(matching_entry_id, exit_time)
-        display_details(matching_entry_id)
-    else:
-        show_custom_warning("FACE NOT RECOGNIZED!.")
-
+            print(f"Error verifying image for {parent_name}: {str(e)}")
+            show_custom_info("NO FACE IN FRAME","NO FACE ALERT","#FF0000")
+            break
     exit_counter += 1
-
-# def update_entry_exit_time(entry_id, exit_time):
-#     with open(csv_file_path, mode='r') as csv_file:
-#         rows = list(csv.DictReader(csv_file))
-
-#     for row in rows:
-#         if int(row['ID']) == entry_id:
-#             row['Exit_Time'] = exit_time
-#             break
-
-#     with open(csv_file_path, mode='w', newline='') as csv_file:
-#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-#         writer.writeheader()
-#         writer.writerows(rows)
 
 def generate_report():
     convert("entry_data.csv", "final_report.pdf")
@@ -167,7 +160,6 @@ root = Tk()
 root.title("Entry Details")
 root.geometry("1200x800")
 
-#creating a font object
 fontObj = tkFont.Font(size=12)
 
 with open(csv_file_path, mode='r') as csv_file:
@@ -183,6 +175,7 @@ else:
        entry_counter = 1
 
 exit_counter=0
+
 
 style = ttk.Style()
 style.configure("TButton", padding=(5, 5, 5, 5), font="TkDefaultFont")
@@ -226,6 +219,10 @@ clear_details_button.grid(row=6, column=0, columnspan=2, pady=10)
 
 label_details = Label(frame_left, text="Recognized Output:", width=40, height=5, font=fontObj)
 label_details.grid(row=5, column=0, sticky='w')
+
+
+clear_details_button = ttk.Button(frame_left, text="Clear Details", command=clear_details)
+clear_details_button.grid(row=6, column=0, columnspan=2, pady=10)
 
 generate_report_button = ttk.Button(frame_right, text="Generate Report", command=generate_report)
 generate_report_button.pack(side=tk.BOTTOM, pady=(0, 25))
